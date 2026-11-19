@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F4F1EA">
+<meta name="description" content="见己 —— 个人思考与表达成长系统。记录、思考、表达、行动，长期积累你的成长档案。">
+<title>见己 · 个人思考与表达成长系统</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="deskbar">
+  <div class="deskbar-brand"><span class="brand-mark">见</span><span>见己</span><span class="deskbar-sub">个人思考与表达成长系统</span></div>
+  <div class="deskbar-actions">
+    <span class="local-badge" title="数据仅保存在本机浏览器">● 本地存储</span>
+    <button class="icon-btn" id="deskTheme" title="切换深色/浅色" aria-label="切换主题"></button>
+  </div>
+</div>
+
+<div class="device">
+  <div class="app" id="app">
+    <div class="screen" id="screen"><div class="loading">正在打开见己…</div></div>
+    <nav class="tabbar" id="tabbar"></nav>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="modal-root"></div>
+<input type="file" id="importFile" accept="application/json,.json" style="display:none">
+
+<script src="store.js"></script>
+<script src="content.js"></script>
+<script src="report.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
