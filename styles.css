@@ -342,3 +342,23 @@ textarea{resize:none}
   .deskbar{padding:8px 20px}
   .device{height:94vh}
 }
+
+/* ---------- PWA 添加到主屏幕引导 ---------- */
+.install-banner{position:absolute;left:0;right:0;bottom:calc(58px + var(--safe-bottom));z-index:120;background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 16px;box-shadow:0 -6px 20px rgba(43,48,44,.08);display:none}
+.install-banner.show{display:flex;align-items:center;gap:12px}
+.install-banner .ib-icon{width:40px;height:40px;border-radius:11px;background:var(--sage-deep);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:#fff;font-size:20px;font-weight:600}
+.install-banner .ib-body{flex:1;min-width:0}
+.install-banner .ib-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.install-banner .ib-sub{font-size:11px;color:var(--ink-3);line-height:1.5}
+.install-banner .ib-btn{border:0;background:var(--sage-deep);color:#fff;font-size:12px;padding:8px 14px;border-radius:18px;cursor:pointer;flex:0 0 auto;font-weight:500}
+.install-banner .ib-close{border:0;background:none;color:var(--ink-3);font-size:18px;line-height:1;cursor:pointer;padding:4px;flex:0 0 auto}
+.install-guide{position:fixed;inset:0;z-index:200;background:rgba(20,24,21,.55);display:none;align-items:flex-start;justify-content:flex-end;padding:8px 14px}
+.install-guide.show{display:flex}
+.install-guide .ig-card{background:var(--surface);border-radius:14px;max-width:300px;width:100%;padding:16px;box-shadow:var(--shadow);margin-top:calc(52px + var(--safe-top))}
+.install-guide .ig-h{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px}
+.install-guide .ig-step{font-size:12px;color:var(--ink-2);line-height:1.7}
+.install-guide .ig-step b{color:var(--sage-deep);font-weight:600}
+.install-guide .ig-actions{display:flex;gap:10px;margin-top:14px}
+.install-guide .ig-actions button{flex:1;border:0;border-radius:10px;padding:10px;font-size:12px;cursor:pointer}
+.install-guide .ig-ok{background:var(--sage-deep);color:#fff}
+.install-guide .ig-cancel{background:var(--soft-green);color:var(--ink-2)}

@@ -3,9 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#F4F1EA">
+<meta name="theme-color" content="#4F6149">
 <meta name="description" content="见己 —— 个人思考与表达成长系统。记录、思考、表达、行动，长期积累你的成长档案。">
 <title>见己 · 个人思考与表达成长系统</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="见己">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -21,6 +28,26 @@
   <div class="app" id="app">
     <div class="screen" id="screen"><div class="loading">正在打开见己…</div></div>
     <nav class="tabbar" id="tabbar"></nav>
+    <div class="install-banner" id="installBanner">
+      <div class="ib-icon">见</div>
+      <div class="ib-body">
+        <div class="ib-title">把见己装到主屏幕</div>
+        <div class="ib-sub" id="ibSub">像 APP 一样打开，可离线使用</div>
+      </div>
+      <button class="ib-btn" id="ibBtn">添加</button>
+      <button class="ib-close" id="ibClose" aria-label="关闭">×</button>
+    </div>
+  </div>
+</div>
+
+<div class="install-guide" id="installGuide">
+  <div class="ig-card">
+    <div class="ig-h">添加到主屏幕</div>
+    <div class="ig-step" id="igStep"></div>
+    <div class="ig-actions">
+      <button class="ig-cancel" id="igCancel">以后再说</button>
+      <button class="ig-ok" id="igOk">知道了</button>
+    </div>
   </div>
 </div>
 
@@ -32,5 +59,71 @@
 <script src="content.js"></script>
 <script src="report.js"></script>
 <script src="app.js"></script>
+<script>
+(function () {
+  // 注册 Service Worker（离线 + 秒开）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
+  }
+
+  var banner = document.getElementById('installBanner');
+  var guide = document.getElementById('installGuide');
+  var ibBtn = document.getElementById('ibBtn');
+  var ibClose = document.getElementById('ibClose');
+  var igStep = document.getElementById('igStep');
+  var igCancel = document.getElementById('igCancel');
+  var igOk = document.getElementById('igOk');
+  var deferredPrompt = null;
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  var ua = navigator.userAgent;
+  var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isMobile = isIOS || /Android/i.test(ua);
+  var DISMISS_KEY = 'jianji_install_dismissed';
+  var LAST_KEY = 'jianji_install_lastshown';
+
+  function dismissed() { try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch (e) { return false; } }
+  function markDismissed() { try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {} }
+  function recentlyShown() {
+    try { var t = Number(localStorage.getItem(LAST_KEY) || 0); return Date.now() - t < 7 * 86400000; } catch (e) { return false; }
+  }
+  function markShown() { try { localStorage.setItem(LAST_KEY, String(Date.now())); } catch (e) {} }
+
+  function showBanner() {
+    if (isStandalone || dismissed() || recentlyShown() || !isMobile) return;
+    var sub = document.getElementById('ibSub');
+    if (isIOS) { ibBtn.textContent = '查看方法'; sub.textContent = '点按后按提示添加到主屏幕'; }
+    banner.classList.add('show');
+    markShown();
+  }
+  function hideBanner() { banner.classList.remove('show'); }
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!isIOS) showBanner();
+  });
+
+  ibBtn.addEventListener('click', function () {
+    if (deferredPrompt && !isIOS) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; hideBanner(); markDismissed(); });
+      return;
+    }
+    igStep.innerHTML = isIOS
+      ? '1. 点击屏幕底部的<b>分享按钮</b>（方框向上箭头）<br>2. 在列表中向下找到<b>「添加到主屏幕」</b><br>3. 点右上角<b>「添加」</b>即可'
+      : '1. 点击浏览器<b>菜单（⋮）</b><br>2. 选择<b>「添加到主屏幕」</b>或<b>「安装应用」</b><br>3. 确认即可';
+    guide.classList.add('show');
+    hideBanner();
+  });
+  ibClose.addEventListener('click', function () { hideBanner(); markDismissed(); });
+  igCancel.addEventListener('click', function () { guide.classList.remove('show'); });
+  igOk.addEventListener('click', function () { guide.classList.remove('show'); markDismissed(); });
+
+  // 延迟出现，避免打扰首次使用
+  setTimeout(showBanner, 4000);
+})();
+</script>
 </body>
 </html>
