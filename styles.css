@@ -362,3 +362,71 @@ textarea{resize:none}
 .install-guide .ig-actions button{flex:1;border:0;border-radius:10px;padding:10px;font-size:12px;cursor:pointer}
 .install-guide .ig-ok{background:var(--sage-deep);color:#fff}
 .install-guide .ig-cancel{background:var(--soft-green);color:var(--ink-2)}
+
+/* ============ AI 能力 · 2026-11 新增 ============ */
+/* 学习工作流入口卡 */
+.study-entry{position:relative;width:100%;text-align:left;background:linear-gradient(135deg,var(--sage-deep),var(--sage));border-radius:var(--r-lg);padding:18px 18px 16px;color:#fff;box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
+.study-entry::after{content:'';position:absolute;right:-24px;top:-24px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.08)}
+.study-entry .se-eyebrow{font-size:10px;letter-spacing:1px;opacity:.8;margin-bottom:6px}
+.study-entry .se-title{font-size:19px;font-weight:700;margin-bottom:6px}
+.study-entry .se-desc{font-size:11px;line-height:1.6;opacity:.9;max-width:94%}
+.study-entry .se-go{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:600}
+.study-entry .se-go span{transition:transform .15s}
+.study-entry:active .se-go span{transform:translateX(4px)}
+
+/* AI 徽章 */
+.ai-badge{display:inline-block;font-size:10px;font-weight:500;padding:2px 8px;border-radius:10px;background:var(--soft-green);color:var(--sage-deep);vertical-align:middle}
+.ai-badge.on{background:var(--sage-deep);color:#fff}
+[data-theme="dark"] .ai-badge.on{color:#171A18}
+
+/* 步骤条 */
+.study-steps{display:flex;align-items:flex-start;justify-content:space-between;margin:2px 2px 18px;position:relative}
+.study-steps::before{content:'';position:absolute;left:12%;right:12%;top:13px;height:2px;background:var(--line-2);z-index:0}
+.ss{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+.ss-dot{width:26px;height:26px;border-radius:50%;background:var(--surface-2);border:2px solid var(--line-2);color:var(--ink-3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.ss-lb{font-size:10px;color:var(--ink-3)}
+.ss.cur .ss-dot{background:var(--sage-deep);border-color:var(--sage-deep);color:#fff}
+.ss.cur .ss-lb{color:var(--sage-deep);font-weight:600}
+.ss.done .ss-dot{background:var(--sage);border-color:var(--sage);color:#fff}
+.ss.done .ss-lb{color:var(--ink-2)}
+[data-theme="dark"] .ss.cur .ss-dot,[data-theme="dark"] .ss.done .ss-dot{color:#171A18}
+
+/* AI 加载 / 错误 / 完成态 */
+.ai-busy{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--soft-green-2);border-radius:var(--r-md);padding:26px 16px;font-size:12px;color:var(--sage-deep);font-weight:500}
+.spin{width:16px;height:16px;border:2px solid var(--sage-pale);border-top-color:var(--sage-deep);border-radius:50%;display:inline-block;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-err{display:flex;align-items:flex-start;gap:8px;background:var(--soft-ochre);border-radius:var(--r-md);padding:12px;font-size:12px;color:var(--danger);line-height:1.6;margin-bottom:12px}
+.ai-err svg{width:16px;height:16px;flex-shrink:0;margin-top:1px;stroke:var(--danger)}
+.ai-saved{text-align:center;font-size:12px;color:var(--sage-deep);font-weight:600;padding:10px}
+.study-restart{font-size:12px;color:var(--ink-3)}
+
+/* AI 未开启提示 */
+.ai-gate{display:flex;align-items:flex-start;gap:10px;background:var(--soft-ochre);border-radius:var(--r-md);padding:14px;margin-bottom:14px}
+.ai-gate svg{width:18px;height:18px;flex-shrink:0;stroke:var(--ochre);margin-top:1px}
+.ai-gate b{font-size:13px;color:var(--ink)}
+.ai-gate .s{font-size:11px;color:var(--ink-2);line-height:1.7;margin-top:3px}
+
+/* 追问卡 */
+.probe-card{margin-bottom:12px}
+.probe-lv{display:inline-block;font-size:10px;color:var(--sage-deep);background:var(--soft-green);padding:2px 8px;border-radius:8px;margin-bottom:8px}
+.probe-q{font-size:14px;font-weight:600;line-height:1.6;color:var(--ink);margin-bottom:6px}
+.probe-hint{font-size:11px;color:var(--ink-3);line-height:1.6;margin-bottom:10px}
+.probe-ans{width:100%;border:1px solid var(--line-2);background:var(--surface-2);border-radius:var(--r-sm);padding:10px;font-size:13px;color:var(--ink);line-height:1.6;outline:none}
+.content-inner .segment{margin-bottom:12px}
+
+/* AI 反馈块增强 */
+.ai-feedback{border-left:3px solid var(--sage)}
+.ai-feedback .fb-head .t{display:flex;align-items:center;gap:6px}
+
+/* AI 设置区 */
+.ai-card .ai-config{margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}
+.ai-card .ai-config.disabled{opacity:.72}
+.hintline{font-size:10px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+.ai-apply-row{display:flex;gap:10px;margin:4px 0 8px}
+.ai-apply-row .btn{flex:1}
+.ai-test-result{font-size:11px;line-height:1.6;min-height:16px}
+.ai-test-result.ok{color:var(--sage-deep)}
+.ai-test-result.err{color:var(--danger)}
+.ai-test-result.loading{color:var(--ink-3)}
+.ai-help{font-size:10px;color:var(--ink-3);line-height:1.7}
+.ai-help a{color:var(--sage-deep);text-decoration:underline}

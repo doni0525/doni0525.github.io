@@ -2,7 +2,7 @@
    策略：stale-while-revalidate —— 先给缓存（秒开/离线可用），后台悄悄更新；
    以后上传新版文件后，用户下次或再下次打开即自动拿到新版，无需清缓存。 */
 
-var CACHE = 'jianji-v2';
+var CACHE = 'jianji-v3';
 var CORE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ var CORE = [
   './store.js',
   './content.js',
   './report.js',
+  './ai.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',

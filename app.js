@@ -16,8 +16,18 @@
     thinkStep: 0,
     expressMode: 'e100',
     searchQuery: '',
-    editingOpinion: null
+    editingOpinion: null,
+    study: null
   };
+
+  function freshStudy() {
+    return {
+      step: 0, topic: '', material: '', decomp: null,
+      probeRound: 0, probeHistory: [], questions: [], answers: {},
+      form: 'note', draft: null, critique: null,
+      busy: '', err: '', saved: false
+    };
+  }
 
   var TABS = [
     { key: 'home', label: '今日', icon: '<circle cx="9" cy="9" r="6.5"/><circle cx="9" cy="9" r="2" fill="currentColor" stroke="none"/>' },
@@ -84,7 +94,9 @@
     if (state.view === 'express') {
       state.expressDraft = { date: Store.utility.todayStr(), mode: state.expressMode, content: '', topic: '' };
       state.expressResult = null;
+      state.expressAI = null;
     }
+    if (state.view === 'study' && !state.study) state.study = freshStudy();
     render();
     SCREEN.scrollTop = 0;
   }
@@ -104,6 +116,7 @@
       case 'record': html = viewRecord(); break;
       case 'think': html = viewThink(); break;
       case 'express': html = viewExpress(); break;
+      case 'study': html = viewStudy(); break;
       case 'practice': html = viewPractice(); break;
       case 'weekly': html = viewWeekly(); break;
       case 'opinions': html = viewOpinions(); break;
@@ -222,6 +235,8 @@
     var qs = Content.RECORD_QUESTIONS;
     var filled = qs.filter(function (q) { return q.split ? (a.fact || a.guess) : a[q.key]; }).length;
     var isToday = d.date === Store.utility.todayStr();
+    var rai = state.recordAI;
+    var rBusy = state.recordAIBusy;
 
     var cards = qs.map(function (q, i) {
       var num = pad(i + 1);
@@ -249,6 +264,15 @@
         '<div class="card flat"><div class="sec-title" style="margin-bottom:10px">标签分类</div><div class="chips">' + TAG_OPTIONS.map(function (t) {
           return '<button class="chip' + ((d.tags || []).indexOf(t) >= 0 ? ' on' : '') + '" data-tag="' + t + '">' + t + '</button>';
         }).join('') + '</div></div>' +
+        (rBusy ? studyBusyBlock('AI 正在阅读这条记录…') : '') +
+        (rai ? '<div class="report-block ai-feedback"><h3>AI 洞察 <span class="ai-badge on">基于你写下的内容</span></h3>' +
+          '<div class="think-hero" style="margin:0 0 12px"><div class="q" style="font-size:15px">' + esc(rai.gist || '') + '</div></div>' +
+          (rai.insights || []).map(function (x) { return '<div class="report-line"><span class="rn">•</span><span>' + esc(x) + '</span></div>'; }).join('') +
+          (rai.blindspot ? '<div class="note" style="margin-top:10px;color:var(--ink-2);line-height:1.7"><b>值得留意：</b>' + esc(rai.blindspot) + '</div>' : '') +
+          (rai.question ? '<div class="note" style="margin-top:8px;color:var(--sage);line-height:1.7"><b>继续想：</b>' + esc(rai.question) + '</div>' : '') +
+          (rai.nextStep ? '<div class="note" style="margin-top:8px;color:var(--ink-3);line-height:1.7"><b>一个小行动：</b>' + esc(rai.nextStep) + '</div>' : '') +
+        '</div>' : '') +
+        '<button class="btn btn-outline btn-block" data-record-ai style="margin-bottom:10px">✦ AI 洞察这条记录</button>' +
         '<div class="actions-row"><button class="btn btn-outline" data-save-draft>存草稿</button><button class="btn btn-primary" data-finish-record>完成记录</button></div>' +
       '</div>';
   }
@@ -289,6 +313,8 @@
     var ed = state.expressDraft || { content: '' };
     var len = (ed.content || '').replace(/\s/g, '').length;
     var f = state.expressResult;
+    var af = state.expressAI;
+    var aBusy = state.expressAIBusy;
 
     return '' +
       '<div class="topbar"><button class="back-btn" data-back>' + svg(ICON.back) + '返回</button><h1 style="font-size:16px">表达练习</h1></div>' +
@@ -309,9 +335,153 @@
           '<div class="advice"><div class="lb">一处可以更好</div><p>' + esc(f.advice) + '</p></div>' +
           '<div class="disclaimer">' + esc(f.note) + '</div>' +
         '</div>' : '') +
+        (aBusy ? studyBusyBlock('AI 正在从观点、逻辑、事例等角度深度点评…') : '') +
+        (af ? '<div class="feedback ai-feedback">' +
+          '<div class="fb-head"><div class="t">' + svg('<path d="M9 1.5L10.8 5.4L15 5.4L11.5 8L12.8 12L9 9.6L5.2 12L6.5 8L3 5.4L7.2 5.4L9 1.5Z" fill="currentColor" stroke="none"/>', 14) + ' AI 深度点评 <span class="ai-badge on">参考 ' + esc(af.total != null ? af.total : '—') + ' 分</span></div></div>' +
+          (af.dims || []).map(function (d) {
+            return '<div class="dim"><span class="n">' + esc(d.name) + '</span><span class="track"><span class="fill' + ((Number(d.score) || 0) < 60 ? ' mid' : '') + '" style="width:' + (Number(d.score) || 0) + '%"></span></span><span class="v">' + esc(d.level || d.score) + '</span></div>' +
+              '<div class="note" style="margin:-2px 0 8px;color:var(--ink-3);line-height:1.6">' + esc(d.comment || '') + '</div>';
+          }).join('') +
+          '<div class="advice"><div class="lb">你写得最好的地方</div><p>' + esc(af.strength || '') + '</p></div>' +
+          '<div class="advice"><div class="lb">最值得改进的一点</div><p>' + esc(af.advice || '') + '</p></div>' +
+        '</div>' : '') +
         '<div class="actions-row">' + (f ? '<button class="btn btn-outline" data-express-save>存入观点库</button>' : '') +
-          '<button class="btn btn-primary" data-express-feedback>获取反馈</button></div>' +
+          '<button class="btn btn-outline" data-express-ai>AI 深度点评</button>' +
+          '<button class="btn btn-primary" data-express-feedback>本地反馈</button></div>' +
+        '<div class="note" style="text-align:center;font-size:10px;color:var(--ink-3)">本地反馈不联网；AI 深度点评会把这段文字发送给 AI。</div>' +
       '</div>';
+  }
+
+  /* ---------- AI 理解与创作工作流 ---------- */
+  function studySteps() {
+    var labels = ['素材', '拆解', '追问', '创作', '沉淀'];
+    return '<div class="study-steps">' + labels.map(function (l, i) {
+      var cls = i === state.study.step ? ' cur' : (i < state.study.step ? ' done' : '');
+      return '<div class="ss' + cls + '"><span class="ss-dot">' + (i < state.study.step ? '✓' : (i + 1)) + '</span><span class="ss-lb">' + l + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function studyAiGate() {
+    if (AI.isReady()) return '';
+    return '<div class="ai-gate">' + svg(ICON.info) +
+      '<div><b>需要先开启 AI</b><div class="s">这个工作流会调用 AI。请先在「我的 → AI 智能分析」里填入密钥并开启，然后回来继续。</div>' +
+      '<button class="btn btn-outline btn-sm" data-go-settings style="margin-top:10px">去设置</button></div></div>';
+  }
+
+  function studyBusyBlock(text) {
+    return '<div class="ai-busy"><span class="spin"></span><span>' + esc(text || 'AI 正在思考…') + '</span></div>';
+  }
+
+  function studyErrBlock() {
+    return state.study.err ? '<div class="ai-err">' + svg(ICON.info) + '<span>' + esc(state.study.err) + '</span></div>' : '';
+  }
+
+  function viewStudy() {
+    var s = state.study;
+    if (!s) s = state.study = freshStudy();
+    var head = '<div class="topbar"><button class="back-btn" data-back>' + svg(ICON.back) + '返回</button><h1 style="font-size:16px">知识理解与创作</h1>' +
+      (s.step > 0 ? '<button class="link-btn study-restart" data-study-restart title="重新开始">重来</button>' : '') + '</div>';
+
+    var body = '';
+    if (s.busy) {
+      body = '<div class="content">' + studySteps() + studyBusyBlock(s.busy) + '</div>';
+      return head + body;
+    }
+    body += '<div class="content">' + studySteps() + studyErrBlock();
+
+    if (s.step === 0) {
+      body += studyAiGate();
+      body += '<div class="card"><div class="card-t"><h2>第一步 · 贴一段素材</h2></div>' +
+        '<div class="field"><label>主题 / 标题（可选）</label><input id="studyTopic" value="' + esc(s.topic) + '" placeholder="例如：什么是独立思考"></div>' +
+        '<div class="field"><label>素材内容</label><textarea id="studyMaterial" style="min-height:170px" placeholder="粘贴一段文章、一个观点、一段笔记，或任何你想真正读懂的内容……">' + esc(s.material) + '</textarea></div>' +
+        '<div class="note">内容只在本机暂存；点击“开始拆解”时，这段素材会发送给 AI 进行分析。</div></div>' +
+        '<button class="btn btn-primary btn-block" data-study-decompose>开始拆解理解 →</button>';
+    }
+
+    if (s.step === 1 && s.decomp) {
+      var d = s.decomp;
+      body += '<div class="think-hero"><div class="lb">一句话说清</div><div class="q" style="font-size:17px">' + esc(d.gist || '') + '</div></div>';
+      if (d.concepts && d.concepts.length) {
+        body += '<div class="report-block"><h3>核心概念</h3>' + d.concepts.map(function (c) {
+          return '<div class="report-line"><span class="rn">•</span><span><b>' + esc(c.name) + '</b><br><span style="color:var(--ink-2);line-height:1.7">' + esc(c.explain) + '</span></span></div>';
+        }).join('') + '</div>';
+      }
+      if (d.logic) body += '<div class="report-block soft"><h3>它是怎么推出来的</h3><div class="note" style="color:var(--ink-2);line-height:1.8">' + esc(d.logic) + '</div></div>';
+      if (d.assumptions && d.assumptions.length) {
+        body += '<div class="report-block"><h3>隐藏的前提</h3>' + d.assumptions.map(function (x) { return '<div class="report-line"><span class="rn">?</span><span>' + esc(x) + '</span></div>'; }).join('') + '</div>';
+      }
+      if (d.blindspots && d.blindspots.length) {
+        body += '<div class="report-block ochre"><h3>可能被质疑的地方</h3>' + d.blindspots.map(function (x) { return '<div class="report-line"><span class="rn">!</span><span>' + esc(x) + '</span></div>'; }).join('') + '</div>';
+      }
+      if (d.connections && d.connections.length) {
+        body += '<div class="report-block soft"><h3>可以联想到</h3>' + d.connections.map(function (x) { return '<div class="note" style="color:var(--ink-2);line-height:1.8">' + esc(x) + '</div>'; }).join('') + '</div>';
+      }
+      body += '<div class="actions-row"><button class="btn btn-outline" data-study-back-step>上一步</button>' +
+        '<button class="btn btn-primary" data-study-probe>用追问内化它 →</button></div>';
+    }
+
+    if (s.step === 2) {
+      body += '<div class="think-hero"><div class="lb">第 ' + s.probeRound + ' 轮追问</div><div class="q" style="font-size:15px">别急着跳到创作。先写下你的回答——这是把知识变成你自己的关键一步。</div></div>';
+      if (s.probeHistory && s.probeHistory.length) {
+        body += '<div class="report-block"><h3>你已回答的追问</h3>' + s.probeHistory.map(function (h, i) {
+          return '<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--ink-3)">问 ' + (i + 1) + '：' + esc(h.q) + '</div><div style="font-size:13px;line-height:1.7">' + esc(h.a || '（未作答）') + '</div></div>';
+        }).join('') + '</div>';
+      }
+      if (s.questions && s.questions.length) {
+        body += s.questions.map(function (q, i) {
+          return '<div class="card probe-card"><div class="probe-lv">' + esc(q.level || '思考') + '</div>' +
+            '<div class="probe-q">' + esc(q.q) + '</div>' +
+            (q.hint ? '<div class="probe-hint">提示：' + esc(q.hint) + '</div>' : '') +
+            '<textarea class="probe-ans" data-probe="' + i + '" style="min-height:74px" placeholder="写下你的回答……">' + esc(s.answers[i] || '') + '</textarea></div>';
+        }).join('');
+      }
+      body += '<div class="actions-row"><button class="btn btn-outline" data-study-probe-more>再追问一轮</button>' +
+        '<button class="btn btn-primary" data-study-to-create>开始创作 →</button></div>';
+    }
+
+    if (s.step === 3) {
+      var forms = [
+        { k: 'note', t: '知识卡' }, { k: 'essay', t: '短文' }, { k: 'talk', t: '口述稿' }, { k: 'viewpoint', t: '观点陈述' }
+      ];
+      body += '<div class="content-inner">' +
+        '<div class="think-hero"><div class="lb">你想产出什么？</div><div class="q" style="font-size:15px">基于你刚才的拆解和回答，AI 会写一份初稿，再由你修改定稿。</div></div>' +
+        '<div class="segment" style="margin-bottom:12px">' + forms.map(function (f) {
+          return '<button class="' + (s.form === f.k ? 'on' : '') + '" data-study-form="' + f.k + '">' + f.t + '</button>';
+        }).join('') + '</div>' +
+        (s.draft ?
+          '<div class="card"><div class="field"><label>初稿标题</label><input id="draftTitle" value="' + esc(s.draft.title || '') + '"></div>' +
+          '<div class="field"><label>初稿正文（可直接修改）</label><textarea id="draftBody" style="min-height:230px;line-height:1.9">' + esc(s.draft.body || '') + '</textarea></div></div>' +
+          '<div class="actions-row"><button class="btn btn-outline" data-study-create>换一版初稿</button>' +
+          '<button class="btn btn-primary" data-study-critique>点评并润色 →</button></div>'
+          :
+          '<button class="btn btn-primary btn-block" data-study-create>生成初稿 →</button>') +
+        '</div>';
+    }
+
+    if (s.step === 4 && s.critique) {
+      var c = s.critique;
+      body += '<div class="think-hero"><div class="lb">创作点评 · 参考分 ' + esc(c.score != null ? c.score : '—') + '</div><div class="q" style="font-size:15px">' + esc(c.strength || '') + '</div></div>';
+      if (c.dims && c.dims.length) {
+        body += '<div class="feedback"><div class="fb-head"><div class="t">多维点评</div></div>' + c.dims.map(function (d) {
+          var w = Math.max(0, Math.min(100, Number(d.score) || 0));
+          return '<div class="dim"><span class="n">' + esc(d.name) + '</span><span class="track"><span class="fill' + (w < 60 ? ' mid' : '') + '" style="width:' + w + '%"></span></span><span class="v">' + w + '</span></div>' +
+            '<div class="note" style="margin:-2px 0 8px;color:var(--ink-3);line-height:1.6">' + esc(d.comment || '') + '</div>';
+        }).join('') + '</div>';
+      }
+      if (c.improve && c.improve.length) {
+        body += '<div class="report-block ochre"><h3>还可以更好</h3>' + c.improve.map(function (x) { return '<div class="report-line"><span class="rn">↑</span><span>' + esc(x) + '</span></div>'; }).join('') + '</div>';
+      }
+      if (c.polished) {
+        body += '<div class="report-block soft"><h3>润色参考（在保留你的原意之上）</h3><div class="note" style="color:var(--ink-2);line-height:1.9;white-space:pre-wrap">' + esc(c.polished) + '</div></div>';
+      }
+      body += (s.saved ? '<div class="ai-saved">✓ 已存入观点库</div>' : '') +
+        '<div class="actions-row"><button class="btn btn-outline" data-study-back-create>返回修改初稿</button>' +
+        '<button class="btn btn-primary" data-study-save>存入观点库</button></div>' +
+        '<button class="btn btn-outline btn-block" data-study-restart style="margin-top:10px">重新开始一条</button>';
+    }
+
+    body += '</div>';
+    return head + body;
   }
 
   /* ---------- 练习中心 ---------- */
@@ -322,7 +492,13 @@
     return '' +
       '<div class="topbar"><h1>成长练习</h1><span class="sub">每天一点点</span></div>' +
       '<div class="content">' +
-        '<div class="tip">' + svg(ICON.info) + '<span>先观察，再思考，最后把它说清楚。三项练习可任意顺序完成。</span></div>' +
+        '<button class="study-entry" data-go="study">' +
+          '<div class="se-eyebrow">AI 深度工作流</div>' +
+          '<div class="se-title">知识理解与创作</div>' +
+          '<div class="se-desc">贴一段素材 → 拆解理解 → 追问内化 → 辅助创作 → 沉淀知识卡，一条链走完。</div>' +
+          '<div class="se-go">开始 <span>→</span></div>' +
+        '</button>' +
+        '<div class="tip">' + svg(ICON.info) + '<span>先观察，再思考，最后把它说清楚。以下练习可任意顺序完成。</span></div>' +
         '<button class="quick" data-go="think" style="width:100%"><span class="qi">' + svg('<path d="M9 2L11 6.5L15.5 9L11 11.5L9 16L7 11.5L2.5 9L7 6.5L9 2Z"/>') + '</span><span class="qt">每日独立思考</span><span class="qd">' + (thoughtDone ? '今天已完成 · 可继续修改' : '一道值得想的问题 · 五步渐进追问') + '</span></button>' +
         '<button class="quick" data-go="express" style="width:100%"><span class="qi">' + svg('<path d="M3 4H15V12H8L4 15V12H3V4Z"/>') + '</span><span class="qt">表达能力训练</span><span class="qd">' + (exprCount ? '今天已练习 ' + exprCount + ' 次 · 再来一次' : '四种模式 · 五维度反馈') + '</span></button>' +
         '<button class="quick" data-go="weekly" style="width:100%"><span class="qi">' + svg('<path d="M3 15V9M7 15V5M11 15V11M15 15V7"/>') + '</span><span class="qt">每周成长分析</span><span class="qd">基于真实记录 · 引用具体日期</span></button>' +
@@ -335,6 +511,8 @@
     var cached = Store.getReport(wr.key);
     var r = cached ? cached.data : Report.generate(Store.data);
     var c = r.counts;
+    var wai = state.weeklyAI;
+    var wBusy = state.weeklyAIBusy;
     return '' +
       '<div class="topbar"><button class="back-btn" data-back>' + svg(ICON.back) + '返回</button><h1 style="font-size:16px">本周成长</h1><span class="sub">' + esc(r.label) + '</span></div>' +
       '<div class="content">' +
@@ -362,8 +540,22 @@
         '<div class="report-block ochre"><h3>下周重点：' + esc(r.focus) + '</h3>' +
           r.microActions.map(function (a, i) { return '<div class="report-line"><span class="rn">' + (i + 1) + '</span><span>' + esc(a) + '</span></div>'; }).join('') +
         '</div>' +
-        '<div class="evidence">' + svg(ICON.info) + '<span>全部内容来自真实记录并标注日期；证据不足的板块已如实提示，不编造进步，不对人格做定性判断。</span></div>' +
-        '<button class="btn btn-outline btn-block" data-refresh-report>重新生成周报</button>' +
+        '<div class="evidence">' + svg(ICON.info) + '<span>以上内容来自真实记录并标注日期（本地规则生成）；证据不足的板块已如实提示。</span></div>' +
+        (wBusy ? studyBusyBlock('AI 正在通读本周记录并深度分析…') : '') +
+        (wai ? '<div class="report-block ai-feedback"><h3>AI 深度分析 <span class="ai-badge on">基于本周真实记录</span></h3>' +
+          '<div class="think-hero" style="margin:0 0 12px"><div class="q" style="font-size:16px">' + esc(wai.headline || '') + '</div></div>' +
+          (wai.themes || []).map(function (t) {
+            return '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600">' + esc(t.name) + '</div>' +
+              '<div class="note" style="color:var(--ink-2);line-height:1.7">' + esc(t.meaning || '') + '</div>' +
+              '<div class="note" style="color:var(--ink-3);font-size:10px">依据：' + esc(t.evidence || '') + '</div></div>';
+          }).join('') +
+          (wai.growth && wai.growth.length ? '<div class="sec-title" style="margin-top:8px">可见的进步</div>' + wai.growth.map(function (x) { return '<div class="report-line"><span class="rn">↑</span><span>' + esc(x) + '</span></div>'; }).join('') : '') +
+          (wai.blindspot ? '<div class="note" style="margin-top:10px;color:var(--ink-2);line-height:1.7"><b>值得留意：</b>' + esc(wai.blindspot) + '</div>' : '') +
+          (wai.nextFocus ? '<div class="note" style="margin-top:8px;color:var(--sage);line-height:1.7"><b>下周聚焦：</b>' + esc(wai.nextFocus) + '</div>' : '') +
+          (wai.microActions && wai.microActions.length ? '<div class="sec-title" style="margin-top:8px">可以马上做的小行动</div>' + wai.microActions.map(function (x) { return '<div class="report-line"><span class="rn">•</span><span>' + esc(x) + '</span></div>'; }).join('') : '') +
+        '</div>' : '') +
+        '<button class="btn btn-outline btn-block" data-weekly-ai style="margin-bottom:10px">✦ AI 深度分析本周</button>' +
+        '<button class="btn btn-outline btn-block" data-refresh-report>重新生成本地周报</button>' +
       '</div>';
   }
 
@@ -451,10 +643,31 @@
     var recordCount = Store.all('records').length;
     var opinionCount = Store.all('opinions').length;
     var exprCount = Store.all('expressions').length;
+    var aiCfg = AI.getConfig();
+    var aiOn = !!(aiCfg.enabled && aiCfg.apiKey);
     return '' +
       '<div class="topbar"><h1>我的</h1><span class="sub">设置与数据</span></div>' +
       '<div class="content">' +
-        '<div class="privacy-card">' + svg(ICON.shield) + '<div><div class="t">隐私优先</div><div class="s">所有记录默认保存在这台设备的浏览器里，不上传、不联网。反馈由本地规则生成，你的文字不会发送给任何服务器。数据始终由你掌控。</div></div></div>' +
+        '<div class="privacy-card">' + svg(ICON.shield) + '<div><div class="t">数据默认只在本地</div><div class="s">所有记录默认保存在这台设备的浏览器里。默认反馈由本地规则生成、不联网；只有当你主动使用 AI 功能时，对应的文字才会发送给 AI 服务商。是否开启完全由你决定。</div></div></div>' +
+
+        '<div class="set-card ai-card"><h3>AI 智能分析 <span class="ai-badge' + (aiOn ? ' on' : '') + '">' + (aiOn ? '已开启' : '未开启') + '</span></h3>' +
+          '<div class="set-row"><div class="set-info"><div class="t">启用 AI 能力</div><div class="s">开启后可深度理解素材、追问、辅助创作</div></div>' +
+            '<button class="switch' + (aiCfg.enabled ? ' on' : '') + '" data-ai-toggle="enabled"><span class="knob"></span></button></div>' +
+          '<div class="ai-config' + (aiCfg.enabled ? '' : ' disabled') + '">' +
+            '<div class="field"><label>服务商</label><select id="aiProvider">' +
+              AI.PROVIDERS.map(function (p) { return '<option value="' + p.id + '"' + ((aiCfg.provider || 'deepseek') === p.id ? ' selected' : '') + '>' + p.name + '</option>'; }).join('') +
+            '</select></div>' +
+            '<div class="field"><label>API Key</label><input type="password" id="aiKey" value="' + esc(aiCfg.apiKey || '') + '" placeholder="粘贴你的 API Key" autocomplete="off"><div class="hintline">仅保存在本机浏览器，不写入备份文件。' + (aiCfg.apiKey ? ' 当前：' + esc(AI.maskKey(aiCfg.apiKey)) : '') + '</div></div>' +
+            '<div class="field"><label>接口地址</label><input type="text" id="aiBaseUrl" value="' + esc(aiCfg.baseUrl || '') + '" placeholder="https://api.deepseek.com/v1"></div>' +
+            '<div class="field"><label>模型</label><input type="text" id="aiModel" value="' + esc(aiCfg.model || '') + '" placeholder="deepseek-chat"></div>' +
+            '<div class="ai-apply-row">' +
+              '<button class="btn btn-primary btn-sm" data-ai-save>保存配置</button>' +
+              '<button class="btn btn-outline btn-sm" data-ai-test>测试连接</button>' +
+            '</div>' +
+            '<div id="aiTestResult" class="ai-test-result"></div>' +
+            '<div class="ai-help">还没有密钥？到 <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">DeepSeek 控制台</a> 注册并创建（新用户有免费额度）。复制后粘贴到上方即可。</div>' +
+          '</div>' +
+        '</div>' +
 
         '<div class="set-card"><h3>每日提醒</h3>' +
           '<div class="set-row"><div class="set-info"><div class="t">每日记录提醒</div><div class="s">网页内提醒 · 需保持页面打开</div></div>' +
@@ -603,6 +816,7 @@
         else if (t === 'think') go('practice', 'think');
         else if (t === 'express') go('practice', 'express');
         else if (t === 'weekly') go('practice', 'weekly');
+        else if (t === 'study') go('practice', 'study');
         else if (t === 'opinions') go('opinions');
       });
     });
@@ -627,6 +841,7 @@
     bindRecordEvents();
     bindThinkEvents();
     bindExpressEvents();
+    bindStudyEvents();
     bindWeeklyEvents();
     bindOpinionEvents();
     bindSearchEvents();
@@ -639,6 +854,7 @@
       state.recordDate = dt.value;
       var rec = Store.getRecordByDate(dt.value);
       state.recordDraft = rec ? Store.utility.clone(rec) : { date: dt.value, answers: {}, tags: [], status: 'draft' };
+      state.recordAI = null;
       render();
     });
     var todayBtn = SCREEN.querySelector('[data-today]');
@@ -684,6 +900,21 @@
     });
     var sd = SCREEN.querySelector('[data-save-draft]');
     if (sd) sd.addEventListener('click', function () { Store.saveRecord(state.recordDraft); toast('草稿已保存'); });
+    var rai = SCREEN.querySelector('[data-record-ai]');
+    if (rai) rai.addEventListener('click', function () {
+      if (!AI.isReady()) { toast('请先在「我的」里开启 AI 并填写密钥'); return; }
+      var answers = state.recordDraft.answers || {};
+      var any = Object.values(answers).some(function (x) { return x && x.trim && x.trim().length >= 8; });
+      if (!any) { toast('先写一点记录内容，再让 AI 洞察'); return; }
+      state.recordAIBusy = true; state.recordAI = null; render();
+      AI.recordInsight({ date: state.recordDraft.date, answers: answers }).then(function (res) {
+        state.recordAIBusy = false; state.recordAI = res; render();
+        setTimeout(function () { var f = SCREEN.querySelector('.ai-feedback'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+      }).catch(function (e) {
+        state.recordAIBusy = false;
+        toast((e && e.message) ? e.message : 'AI 洞察失败'); render();
+      });
+    });
     var fin = SCREEN.querySelector('[data-finish-record]');
     if (fin) fin.addEventListener('click', function () {
       state.recordDraft.status = 'done';
@@ -745,6 +976,7 @@
         state.expressMode = el.getAttribute('data-mode');
         state.expressDraft = { date: Store.utility.todayStr(), mode: state.expressMode, content: '' };
         state.expressResult = null;
+        state.expressAI = null;
         render();
       });
     });
@@ -755,6 +987,7 @@
       var m = Content.EXPRESS_MODES.filter(function (x) { return x.key === state.expressMode; })[0];
       if (more) more.textContent = inp.value.replace(/\s/g, '').length + ' / ' + m.target + ' 字';
       state.expressResult = null;
+      state.expressAI = null;
     });
     var fb = SCREEN.querySelector('[data-express-feedback]');
     if (fb) fb.addEventListener('click', function () {
@@ -769,6 +1002,27 @@
       render();
       setTimeout(function () { var f = SCREEN.querySelector('.feedback'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
     });
+    var aiBtn = SCREEN.querySelector('[data-express-ai]');
+    if (aiBtn) aiBtn.addEventListener('click', function () {
+      var content = (document.getElementById('expressInput') || {}).value || '';
+      content = content.trim();
+      if (content.replace(/\s/g, '').length < 10) { toast('再写一点吧，至少写 10 个字'); return; }
+      if (!AI.isReady()) { toast('请先在「我的」里开启 AI 并填写密钥'); return; }
+      var topic = Content.pickExpress(Store.utility.todayStr(), state.expressMode);
+      state.expressAIBusy = true; state.expressAI = null; render();
+      AI.expressFeedback(content, state.expressMode, topic).then(function (res) {
+        state.expressAIBusy = false;
+        state.expressAI = res;
+        var d = { date: Store.utility.todayStr(), mode: state.expressMode, content: content, topic: topic, aiFeedback: res };
+        Store.saveExpression(d);
+        render();
+        setTimeout(function () { var f = SCREEN.querySelector('.ai-feedback'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+      }).catch(function (e) {
+        state.expressAIBusy = false;
+        toast((e && e.message) ? e.message : 'AI 点评失败');
+        render();
+      });
+    });
     var save = SCREEN.querySelector('[data-express-save]');
     if (save) save.addEventListener('click', function () {
       var d = state.expressDraft;
@@ -781,12 +1035,180 @@
     });
   }
 
+  /* ---------- AI 工作流事件 ---------- */
+  function studyRun(busyText, fn, onDone) {
+    var s = state.study;
+    s.busy = busyText; s.err = ''; render();
+    return fn().then(function (res) {
+      s.busy = '';
+      if (onDone) onDone(res);
+      render();
+      SCREEN.scrollTop = 0;
+    }).catch(function (e) {
+      s.busy = '';
+      s.err = (e && e.message) ? e.message : '调用失败，请重试';
+      render();
+    });
+  }
+
+  function bindStudyEvents() {
+    if (state.view !== 'study' || !state.study) return;
+    var s = state.study;
+
+    function syncInputs() {
+      var t = document.getElementById('studyTopic'); if (t) s.topic = t.value;
+      var m = document.getElementById('studyMaterial'); if (m) s.material = m.value;
+    }
+
+    var topicEl = document.getElementById('studyTopic');
+    if (topicEl) topicEl.addEventListener('input', function () { s.topic = topicEl.value; });
+    var matEl = document.getElementById('studyMaterial');
+    if (matEl) matEl.addEventListener('input', function () { s.material = matEl.value; });
+
+    SCREEN.querySelectorAll('[data-probe]').forEach(function (el) {
+      el.addEventListener('input', function () { s.answers[el.getAttribute('data-probe')] = el.value; });
+    });
+
+    var gs = SCREEN.querySelector('[data-go-settings]');
+    if (gs) gs.addEventListener('click', function () { go('me'); });
+
+    var restart = SCREEN.querySelector('[data-study-restart]');
+    if (restart) restart.addEventListener('click', function () {
+      confirmModal('重新开始？', '当前这条工作流的素材与结果会清空（不影响已存入观点库的内容）。', function () {
+        state.study = freshStudy(); render();
+      });
+    });
+
+    var dec = SCREEN.querySelector('[data-study-decompose]');
+    if (dec) dec.addEventListener('click', function () {
+      syncInputs();
+      var mat = s.material.trim();
+      if (mat.replace(/\s/g, '').length < 20) { toast('素材太短了，至少写 20 个字'); return; }
+      if (!AI.isReady()) { toast('请先在「我的」里开启 AI 并填写密钥'); return; }
+      studyRun('正在拆解素材，提炼概念与逻辑…', function () {
+        return AI.decompose(mat, s.topic);
+      }, function (res) { s.decomp = res; s.step = 1; });
+    });
+
+    var backStep = SCREEN.querySelector('[data-study-back-step]');
+    if (backStep) backStep.addEventListener('click', function () { s.step = 0; s.err = ''; render(); });
+
+    var probe = SCREEN.querySelector('[data-study-probe]');
+    if (probe) probe.addEventListener('click', function () {
+      if (!AI.isReady()) { toast('请先开启 AI'); return; }
+      studyRun('正在生成追问…', function () {
+        return AI.probe(s.material, s.decomp, 1, []);
+      }, function (res) {
+        s.questions = res.questions || [];
+        s.probeRound = 1;
+        s.answers = {};
+        s.probeHistory = [];
+        s.step = 2;
+      });
+    });
+
+    var probeMore = SCREEN.querySelector('[data-study-probe-more]');
+    if (probeMore) probeMore.addEventListener('click', function () {
+      if (!AI.isReady()) { toast('请先开启 AI'); return; }
+      var history = (s.probeHistory || []).slice();
+      (s.questions || []).forEach(function (q, i) { history.push({ q: q.q, a: s.answers[i] || '' }); });
+      studyRun('正在生成更深一层的追问…', function () {
+        return AI.probe(s.material, s.decomp, s.probeRound + 1, history);
+      }, function (res) {
+        s.probeHistory = history;
+        s.questions = res.questions || [];
+        s.probeRound = s.probeRound + 1;
+        s.answers = {};
+      });
+    });
+
+    var toCreate = SCREEN.querySelector('[data-study-to-create]');
+    if (toCreate) toCreate.addEventListener('click', function () {
+      var history = (s.probeHistory || []).slice();
+      (s.questions || []).forEach(function (q, i) { history.push({ q: q.q, a: s.answers[i] || '' }); });
+      s.probeHistory = history;
+      s.step = 3;
+      render();
+    });
+
+    SCREEN.querySelectorAll('[data-study-form]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        s.form = el.getAttribute('data-study-form');
+        s.draft = null; s.critique = null;
+        render();
+      });
+    });
+
+    var create = SCREEN.querySelector('[data-study-create]');
+    if (create) create.addEventListener('click', function () {
+      if (!AI.isReady()) { toast('请先开启 AI'); return; }
+      studyRun('正在撰写初稿…', function () {
+        return AI.create(s.material, s.decomp, s.probeHistory, s.form, s.topic);
+      }, function (res) { s.draft = { title: res.title || '', body: res.body || '' }; s.critique = null; s.saved = false; });
+    });
+
+    var dTitle = document.getElementById('draftTitle');
+    if (dTitle) dTitle.addEventListener('input', function () { if (s.draft) s.draft.title = dTitle.value; });
+    var dBody = document.getElementById('draftBody');
+    if (dBody) dBody.addEventListener('input', function () { if (s.draft) s.draft.body = dBody.value; });
+
+    var crit = SCREEN.querySelector('[data-study-critique]');
+    if (crit) crit.addEventListener('click', function () {
+      var d = document.getElementById('draftBody');
+      if (d && s.draft) s.draft.body = d.value;
+      if (!s.draft || !s.draft.body.trim()) { toast('先生成并保留一份初稿'); return; }
+      if (!AI.isReady()) { toast('请先开启 AI'); return; }
+      studyRun('正在点评与润色…', function () {
+        return AI.critique(s.draft.body, s.form);
+      }, function (res) { s.critique = res; s.step = 4; s.saved = false; });
+    });
+
+    var backCreate = SCREEN.querySelector('[data-study-back-create]');
+    if (backCreate) backCreate.addEventListener('click', function () { s.step = 3; s.err = ''; render(); });
+
+    var save = SCREEN.querySelector('[data-study-save]');
+    if (save) save.addEventListener('click', function () {
+      var title = (s.draft && s.draft.title || '').trim();
+      var body = (s.draft && s.draft.body || '').trim();
+      var text = title ? (title + '：' + body) : body;
+      if (!text || text.length < 5) { toast('没有可保存的内容'); return; }
+      var first = text.split(/[。！？\n]/)[0].trim();
+      Store.addOpinion(first.length > 120 ? first.slice(0, 120) : first, s.topic || '自我认识', 'AI 知识创作 · ' + (s.decomp && s.decomp.gist ? s.decomp.gist : '理解与创作'), Store.utility.todayStr());
+      s.saved = true;
+      render();
+      toast('已存入观点库');
+    });
+  }
+
   function bindWeeklyEvents() {
     var r = SCREEN.querySelector('[data-refresh-report]');
     if (r) r.addEventListener('click', function () {
       var fresh = Report.generate(Store.data);
       Store.saveReport({ weekKey: fresh.weekKey, data: fresh });
+      state.weeklyAI = null;
       toast('周报已重新生成'); render();
+    });
+    var wai = SCREEN.querySelector('[data-weekly-ai]');
+    if (wai) wai.addEventListener('click', function () {
+      if (!AI.isReady()) { toast('请先在「我的」里开启 AI 并填写密钥'); return; }
+      var fresh = Report.generate(Store.data);
+      if (!fresh.enough) { toast('本周记录较少，先随手记下几件事再分析'); return; }
+      var summary = {
+        week: fresh.label,
+        counts: fresh.counts,
+        opinions: (fresh.opinions || []).map(function (o) { return { date: o.date, text: o.full || o.text, from: o.from }; }),
+        patterns: fresh.patterns || [],
+        quote: fresh.quote,
+        actions: fresh.actions || []
+      };
+      state.weeklyAIBusy = true; state.weeklyAI = null; render();
+      AI.weeklyInsight(summary).then(function (res) {
+        state.weeklyAIBusy = false; state.weeklyAI = res; render();
+        setTimeout(function () { var f = SCREEN.querySelector('.ai-feedback'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+      }).catch(function (e) {
+        state.weeklyAIBusy = false;
+        toast((e && e.message) ? e.message : 'AI 分析失败'); render();
+      });
     });
   }
 
@@ -850,6 +1272,7 @@
   }
 
   function bindMeEvents() {
+    bindAISettingsEvents();
     SCREEN.querySelectorAll('[data-toggle]').forEach(function (el) {
       el.addEventListener('click', function () {
         var k = el.getAttribute('data-toggle');
@@ -882,6 +1305,65 @@
     });
     var nt = SCREEN.querySelector('[data-notify-test]');
     if (nt) nt.addEventListener('click', requestNotify);
+  }
+
+  /* ---------- AI 设置事件 ---------- */
+  function readAICfgFromForm() {
+    var cfg = AI.getConfig();
+    var keyEl = document.getElementById('aiKey');
+    var baseEl = document.getElementById('aiBaseUrl');
+    var modelEl = document.getElementById('aiModel');
+    var provEl = document.getElementById('aiProvider');
+    if (keyEl) cfg.apiKey = keyEl.value.trim();
+    if (baseEl) cfg.baseUrl = baseEl.value.trim();
+    if (modelEl) cfg.model = modelEl.value.trim();
+    if (provEl) cfg.provider = provEl.value;
+    return cfg;
+  }
+
+  function bindAISettingsEvents() {
+    var sw = SCREEN.querySelector('[data-ai-toggle="enabled"]');
+    if (sw) sw.addEventListener('click', function () {
+      var cfg = AI.getConfig();
+      cfg.enabled = !cfg.enabled;
+      AI.saveConfig(cfg);
+      toast(cfg.enabled ? '已开启 AI（仍需填写密钥）' : '已关闭 AI');
+      render();
+    });
+
+    var provEl = document.getElementById('aiProvider');
+    if (provEl) provEl.addEventListener('change', function () {
+      var p = AI.PROVIDERS.filter(function (x) { return x.id === provEl.value; })[0];
+      if (!p || p.id === 'custom') return;
+      var baseEl = document.getElementById('aiBaseUrl');
+      var modelEl = document.getElementById('aiModel');
+      if (baseEl) baseEl.value = p.baseUrl;
+      if (modelEl) modelEl.value = p.models[0] || '';
+    });
+
+    var save = SCREEN.querySelector('[data-ai-save]');
+    if (save) save.addEventListener('click', function () {
+      var cfg = readAICfgFromForm();
+      var ok = AI.saveConfig(cfg);
+      toast(ok ? 'AI 配置已保存到本机' : '保存失败：本地空间不足');
+      render();
+    });
+
+    var test = SCREEN.querySelector('[data-ai-test]');
+    if (test) test.addEventListener('click', function () {
+      var cfg = readAICfgFromForm();
+      if (!cfg.apiKey) { toast('请先填写 API Key'); return; }
+      AI.saveConfig(cfg);
+      var box = document.getElementById('aiTestResult');
+      if (box) { box.className = 'ai-test-result loading'; box.textContent = '正在连接…'; }
+      test.disabled = true;
+      AI.testConnection().then(function (res) {
+        if (box) { box.className = 'ai-test-result ok'; box.textContent = '✓ 连接成功，AI 已就绪（返回：' + String(res).slice(0, 20) + '）'; }
+        toast('连接成功');
+      }).catch(function (e) {
+        if (box) { box.className = 'ai-test-result err'; box.textContent = '✗ ' + (e && e.message ? e.message : '连接失败'); }
+      }).then(function () { test.disabled = false; });
+    });
   }
 
   /* ---------- 弹窗 ---------- */
